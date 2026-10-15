@@ -17,6 +17,8 @@ import voting.core.Blockchain;
 import voting.model.Voter;
 import voting.service.CorruptDataException;
 import voting.service.Storage;
+import voting.service.VotingException;
+import voting.service.VotingService;
 import voting.util.HashUtil;
 
 /**
@@ -376,6 +378,183 @@ public class TestRunner {
     }
 
     /**
+     * Executes test cases for Phase 5: VotingService business rules, validation, and analytics.
+     */
+    public static void testPhase5() {
+        System.out.println("\n=== Running Phase 5 Tests ===");
+        File testDir = new File("data_test5");
+        deleteDirectory(testDir);
+
+        try {
+            Storage storage = new Storage("data_test5");
+            VotingService service = new VotingService(storage);
+
+            // a) register voter OK; registering same ID again (different case) throws
+            service.registerVoter("v100", "Alice Smith");
+            boolean dupThrows = false;
+            try {
+                service.registerVoter("V100", "Alice Again");
+            } catch (VotingException ve) {
+                dupThrows = true;
+            }
+            check("Phase 5a: register voter OK; registering same ID again (different case) throws",
+                    service.getVoters().containsKey("V100") && dupThrows);
+
+            // b) invalid IDs ("ab", "has space", "a|b") throw
+            boolean bThrows1 = false;
+            try {
+                service.registerVoter("ab", "Bob");
+            } catch (VotingException e) {
+                bThrows1 = true;
+            }
+            boolean bThrows2 = false;
+            try {
+                service.registerVoter("has space", "Bob");
+            } catch (VotingException e) {
+                bThrows2 = true;
+            }
+            boolean bThrows3 = false;
+            try {
+                service.registerVoter("a|b", "Bob");
+            } catch (VotingException e) {
+                bThrows3 = true;
+            }
+            check("Phase 5b: invalid IDs (\"ab\", \"has space\", \"a|b\") throw",
+                    bThrows1 && bThrows2 && bThrows3);
+
+            // c) add 3 candidates; duplicate candidate throws
+            service.addCandidate("Alice");
+            service.addCandidate("Bob");
+            service.addCandidate("Charlie");
+            boolean dupCandThrows = false;
+            try {
+                service.addCandidate("alice"); // case-insensitive check
+            } catch (VotingException ve) {
+                dupCandThrows = true;
+            }
+            check("Phase 5c: add 3 candidates; duplicate candidate throws",
+                    service.getCandidates().size() == 3 && dupCandThrows);
+
+            // d) cast vote succeeds, chain size becomes 2, hasVoted true
+            Block voteBlock = service.castVote("v100", "Alice");
+            check("Phase 5d: cast vote succeeds, chain size becomes 2, hasVoted true",
+                    voteBlock != null && service.getBlockchain().size() == 2 && service.hasVoted("v100") && service.hasVoted("V100"));
+
+            // e) same voter voting again throws
+            boolean doubleVoteThrows = false;
+            try {
+                service.castVote("V100", "Bob");
+            } catch (VotingException ve) {
+                doubleVoteThrows = true;
+            }
+            check("Phase 5e: same voter voting again throws", doubleVoteThrows);
+
+            // f) unregistered voter throws; unknown candidate throws
+            boolean unregThrows = false;
+            try {
+                service.castVote("V999", "Alice");
+            } catch (VotingException ve) {
+                unregThrows = true;
+            }
+            boolean unknownCandThrows = false;
+            try {
+                service.registerVoter("V105", "Temp Voter");
+                service.castVote("V105", "UnknownPerson");
+            } catch (VotingException ve) {
+                unknownCandThrows = true;
+            }
+            check("Phase 5f: unregistered voter throws; unknown candidate throws",
+                    unregThrows && unknownCandThrows);
+
+            // g) adding a candidate after a vote exists throws
+            boolean addCandAfterVoteThrows = false;
+            try {
+                service.addCandidate("Dave");
+            } catch (VotingException ve) {
+                addCandAfterVoteThrows = true;
+            }
+            check("Phase 5g: adding a candidate after a vote exists throws", addCandAfterVoteThrows);
+
+            // h) results: cast 3 votes (2 for A, 1 for B) -> A=2, B=1, C=0, A listed first
+            service.registerVoter("V101", "Bob User");
+            service.registerVoter("V102", "Charlie User");
+            service.castVote("V101", "Alice");
+            service.castVote("V102", "Bob");
+            Map<String, Integer> results = service.getResults();
+            List<String> resultOrder = new ArrayList<>(results.keySet());
+            check("Phase 5h: results: cast 3 votes (2 for A, 1 for B) -> A=2, B=1, C=0, A listed first",
+                    results.get("Alice") == 2
+                            && results.get("Bob") == 1
+                            && results.get("Charlie") == 0
+                            && "Alice".equals(resultOrder.get(0)));
+
+            // i) chain file does NOT contain any raw voter ID (read file text, check)
+            File chainFile = new File("data_test5", "chain.txt");
+            StringBuilder chainContent = new StringBuilder();
+            try (BufferedReader br = new BufferedReader(
+                    new InputStreamReader(new FileInputStream(chainFile), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    chainContent.append(line).append("\n");
+                }
+            }
+            String fullText = chainContent.toString();
+            check("Phase 5i: chain file does NOT contain any raw voter ID",
+                    !fullText.contains("V100") && !fullText.contains("v100")
+                            && !fullText.contains("V101") && !fullText.contains("v101")
+                            && !fullText.contains("V102") && !fullText.contains("v102"));
+
+            // j) verifyPassword("admin123") true, verifyPassword("wrong") false
+            check("Phase 5j: verifyPassword(\"admin123\") true, verifyPassword(\"wrong\") false",
+                    service.verifyPassword("admin123") && !service.verifyPassword("wrong"));
+
+            // k) after tampering chain.txt and creating a new VotingService, castVote throws with
+            // a message containing "tamper"
+            boolean tamperCaught = false;
+            try {
+                List<String> lines = new ArrayList<>();
+                try (BufferedReader br = new BufferedReader(
+                        new InputStreamReader(new FileInputStream(chainFile), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        lines.add(line);
+                    }
+                }
+                String[] p = lines.get(1).split("\\|", -1);
+                p[3] = "HACKED_CANDIDATE";
+                lines.set(1, String.join("|", p));
+                try (BufferedWriter bw = new BufferedWriter(
+                        new OutputStreamWriter(new FileOutputStream(chainFile), StandardCharsets.UTF_8))) {
+                    for (String l : lines) {
+                        bw.write(l);
+                        bw.newLine();
+                    }
+                }
+                VotingService tamperedService = new VotingService(storage);
+                tamperedService.castVote("V105", "Bob");
+            } catch (VotingException ve) {
+                tamperCaught = ve.getMessage() != null && ve.getMessage().toLowerCase().contains("tamper");
+            } catch (Exception e) {
+                tamperCaught = false;
+            }
+            check("Phase 5k: after tampering chain.txt and creating a new VotingService, castVote throws with a message containing \"tamper\"",
+                    tamperCaught);
+
+            // l) resetElection: chain size 1, voters still present
+            service.resetElection();
+            check("Phase 5l: resetElection: chain size 1, voters still present",
+                    service.getBlockchain().size() == 1
+                            && service.getVoters().size() >= 3
+                            && !service.isCorrupted());
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            deleteDirectory(testDir);
+        }
+    }
+
+    /**
      * Runs all test suites, outputs the final pass/fail summary, and exits with code 1 on failure.
      *
      * @param args command-line arguments
@@ -385,6 +564,7 @@ public class TestRunner {
         testPhase2();
         testPhase3();
         testPhase4();
+        testPhase5();
 
         System.out.println("\n" + passed + " passed, " + failed + " failed");
         if (failed > 0) {
