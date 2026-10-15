@@ -1,7 +1,7 @@
 package voting.model;
 
 /**
- * Represents a registered voter in the ChainVote system.
+ * Represents a registered voter in the VoteVault system.
  */
 public class Voter {
 

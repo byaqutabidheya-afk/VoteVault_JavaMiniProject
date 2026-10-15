@@ -1,6 +1,6 @@
-# ChainVote: Complete Feature-by-Feature Evaluation Demo Script
+# Vote Vault: Complete Feature-by-Feature Evaluation Demo Script
 
-This script provides the complete, step-by-step walkthrough to start **ChainVote** and demonstrate every single feature to teachers, evaluators, or viva examiners.
+This script provides the complete, step-by-step walkthrough to start **Vote Vault** and demonstrate every single feature to teachers, evaluators, or viva examiners.
 
 ---
 
@@ -24,13 +24,13 @@ java -cp out voting.Main
 
 ## Step 2: Startup & Integrity Verification
 
-1. The cyan **CHAINVOTE** banner will appear.
+1. The cyan **VOTE VAULT** banner will appear.
 2. Notice the green verification message on launch:
    ```text
    ✔ Blockchain verified: 1 blocks, integrity OK
    ```
 3. Press **Enter** to proceed to the **Main Menu**.
-   - *What to say:* *"ChainVote boots with an automated cryptographic integrity check validating the mined Genesis block."*
+   - *What to say:* *"Vote Vault boots with an automated cryptographic integrity check validating the mined Genesis block."*
 
 ---
 
@@ -171,7 +171,7 @@ java -cp out voting.Main
 ---
 
 ### Feature 9: Clean Exit & Persistence (Menu Option 0)
-1. Type **`0`** ➔ Prints `Thank you for using ChainVote. Goodbye!` and exits cleanly.
+1. Type **`0`** ➔ Prints `Thank you for using VoteVault. Goodbye!` and exits cleanly.
 2. **Demonstrate Persistence**:
    - Relaunch the app: `java -cp out voting.Main`
    - Notice: `✔ Blockchain verified: 4 blocks, integrity OK` appears immediately with all 4 blocks and 3 registered voters preserved on disk!

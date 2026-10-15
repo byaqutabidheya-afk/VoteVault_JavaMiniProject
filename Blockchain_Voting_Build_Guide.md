@@ -1,4 +1,4 @@
-# ChainVote: Blockchain-Based Voting System
+# Vote Vault: Blockchain-Based Voting System
 ### Core Java Console Mini Project: Phase-by-Phase Vibe-Coding Build Guide
 
 **Target time:** 12 hours  |  **Language:** Core Java 17+ (no external libraries, no Maven/Gradle)  |  **Interface:** Console (ANSI colors)

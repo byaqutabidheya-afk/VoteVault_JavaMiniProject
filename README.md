@@ -1,6 +1,6 @@
-# ChainVote: Blockchain-Based Voting System
+# Vote Vault: Blockchain-Based Voting System
 
-ChainVote is a lightweight, tamper-evident console voting platform written in pure Core Java 17+. It leverages blockchain architecture, cryptographic SHA-256 hashing, and proof-of-work consensus to guarantee election integrity, voter privacy, and auditable ballots without reliance on external frameworks, databases, or third-party dependencies.
+Vote Vault is a lightweight, tamper-evident console voting platform written in pure Core Java 17+. It leverages blockchain architecture, cryptographic SHA-256 hashing, and proof-of-work consensus to guarantee election integrity, voter privacy, and auditable ballots without reliance on external frameworks, databases, or third-party dependencies.
 
 ---
 
@@ -66,7 +66,7 @@ VoteVault_JavaMiniProject/
 
 ## How Blockchain Prevents Tampering
 
-In ChainVote, each vote is permanently sealed inside a block that contains two crucial pieces of data:
+In Vote Vault, each vote is permanently sealed inside a block that contains two crucial pieces of data:
 1. **The block's own cryptographic fingerprint** (the SHA-256 hash computed over its index, timestamp, voter hash, candidate, previous block hash, and nonce).
 2. **The previous block's hash**, forming an unbreakable digital chain.
 
@@ -84,7 +84,7 @@ If an attacker opens `data/chain.txt` and attempts to alter a vote in Block #2 (
 - **Broken Chain Link**: Even if the attacker re-mines Block #2 to find a new nonce starting with `0000`, Block #2's new hash will no longer match the `previousHash` pointer permanently recorded in Block #3.
 - **Cascading Invalidation**: To make the alteration look authentic, the attacker would be forced to re-mine every single subsequent block across the entire chain—a computationally prohibitive task.
 
-When ChainVote audits the chain, it flags the modified block with red diagnostic alerts, shows side-by-side cryptographic evidence, marks all downstream blocks as `UNTRUSTED`, and locks down the voting system.
+When Vote Vault audits the chain, it flags the modified block with red diagnostic alerts, shows side-by-side cryptographic evidence, marks all downstream blocks as `UNTRUSTED`, and locks down the voting system.
 
 ---
 

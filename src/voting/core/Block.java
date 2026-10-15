@@ -3,7 +3,7 @@ package voting.core;
 import voting.util.HashUtil;
 
 /**
- * Represents a single block in the ChainVote blockchain.
+ * Represents a single block in the VoteVault blockchain.
  * Each block records a vote and is linked to the previous block via cryptographic hashing.
  */
 public class Block {

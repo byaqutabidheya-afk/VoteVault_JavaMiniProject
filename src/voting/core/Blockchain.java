@@ -5,7 +5,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Represents the ChainVote blockchain.
+ * Represents the VoteVault blockchain.
  * Manages an ordered list of mined blocks, allows adding new votes, and provides
  * cryptographic integrity validation against tampering and re-mining attacks.
  */

@@ -12,7 +12,7 @@ import voting.util.HashUtil;
 
 /**
  * Service managing all voting business rules, voter registrations, candidate nominations,
- * vote casting, and election analytics for ChainVote.
+ * vote casting, and election analytics for VoteVault.
  */
 public class VotingService {
 

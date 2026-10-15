@@ -22,7 +22,7 @@ import voting.service.VotingService;
 import voting.util.HashUtil;
 
 /**
- * Lightweight test runner framework for the ChainVote project.
+ * Lightweight test runner framework for the VoteVault project.
  * Executes phase-by-phase verification tests and reports results.
  */
 public class TestRunner {

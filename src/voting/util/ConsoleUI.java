@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Utility class providing ANSI color formatting, console banners, robust input readers,
- * bar charts, and loading spinners for the console user interface.
+ * bar charts, and loading spinners for the VoteVault user interface.
  */
 public final class ConsoleUI {
 
@@ -27,13 +27,13 @@ public final class ConsoleUI {
      */
     public static void banner() {
         System.out.println(CYAN + BOLD +
-                "  ____ _           _       __     __    _       \n" +
-                " / ___| |__   __ _(_)_ __  \\ \\   / /__ | |_ ___ \n" +
-                "| |   | '_ \\ / _` | | '_ \\  \\ \\ / / _ \\| __/ _ \\\n" +
-                "| |___| | | | (_| | | | | |  \\ V / (_) | ||  __/\n" +
-                " \\____|_| |_|\\__,_|_|_| |_|   \\_/ \\___/ \\__\\___|\n" +
+                " __     __    _         __     __            _ _   \n" +
+                " \\ \\   / /__ | |_ ___   \\ \\   / /_ _ _   _ _| | |_ \n" +
+                "  \\ \\ / / _ \\| __/ _ \\   \\ \\ / / _` | | | | | __|\n" +
+                "   \\ V / (_) | ||  __/    \\ V / (_| | |_| |_| | |_ \n" +
+                "    \\_/ \\___/ \\__\\___|     \\_/ \\__,_|\\__,_|_|_|\\__|\n" +
                 RESET);
-        System.out.println(CYAN + "      Tamper-Proof Blockchain Voting System\n" + RESET);
+        System.out.println(CYAN + "           Tamper-Proof Blockchain Voting System\n" + RESET);
     }
 
     /**
@@ -85,7 +85,7 @@ public final class ConsoleUI {
         System.out.print(prompt);
         System.out.flush();
         if (!sc.hasNextLine()) {
-            System.out.println("\n" + CYAN + "Exiting ChainVote. Goodbye!" + RESET);
+            System.out.println("\n" + CYAN + "Exiting VoteVault. Goodbye!" + RESET);
             System.exit(0);
         }
         String line = sc.nextLine();
@@ -157,7 +157,7 @@ public final class ConsoleUI {
         System.out.print("\nPress Enter to continue...");
         System.out.flush();
         if (!sc.hasNextLine()) {
-            System.out.println("\n" + CYAN + "Exiting ChainVote. Goodbye!" + RESET);
+            System.out.println("\n" + CYAN + "Exiting VoteVault. Goodbye!" + RESET);
             System.exit(0);
         }
         sc.nextLine();

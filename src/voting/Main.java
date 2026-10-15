@@ -12,7 +12,7 @@ import voting.service.VotingService;
 import voting.util.ConsoleUI;
 
 /**
- * Main application class running the interactive console user interface for ChainVote.
+ * Main application class running the interactive console user interface for VoteVault.
  */
 public class Main {
 
@@ -20,7 +20,7 @@ public class Main {
     private static VotingService service;
 
     /**
-     * Entry point for running the ChainVote console application.
+     * Entry point for running the VoteVault console application.
      *
      * @param args command-line arguments
      */
@@ -51,7 +51,7 @@ public class Main {
                     case 6 -> handleHackerSimulation(scanner);
                     case 0 -> {
                         running = false;
-                        System.out.println("\n" + ConsoleUI.CYAN + "Thank you for using ChainVote. Goodbye!" + ConsoleUI.RESET);
+                        System.out.println("\n" + ConsoleUI.CYAN + "Thank you for using VoteVault. Goodbye!" + ConsoleUI.RESET);
                     }
                     default -> ConsoleUI.error("Invalid option selected.");
                 }
