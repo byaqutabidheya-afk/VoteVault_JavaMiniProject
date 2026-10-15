@@ -39,22 +39,16 @@ public class Main {
                 clearScreen();
                 ConsoleUI.banner();
                 displayStatusSummary();
+                displayMainMenu();
 
-                System.out.println("\n" + ConsoleUI.BOLD + "=== MAIN MENU ===" + ConsoleUI.RESET);
-                System.out.println("  1. Cast Vote");
-                System.out.println("  2. View Live Results");
-                System.out.println("  3. Explore Blockchain");
-                System.out.println("  4. Verify Integrity");
-                System.out.println("  5. Admin Panel");
-                System.out.println("  0. Exit");
-
-                int choice = ConsoleUI.readInt(scanner, "\nEnter choice [0-5]: ", 0, 5);
+                int choice = ConsoleUI.readInt(scanner, "\nEnter choice [0-6]: ", 0, 6);
                 switch (choice) {
                     case 1 -> handleCastVote(scanner);
                     case 2 -> handleViewResults(scanner);
                     case 3 -> handleExploreBlockchain(scanner);
                     case 4 -> handleVerifyIntegrity(scanner);
                     case 5 -> handleAdminPanel(scanner);
+                    case 6 -> handleHackerSimulation(scanner);
                     case 0 -> {
                         running = false;
                         System.out.println("\n" + ConsoleUI.CYAN + "Thank you for using ChainVote. Goodbye!" + ConsoleUI.RESET);
@@ -69,6 +63,20 @@ public class Main {
                 ConsoleUI.pause(scanner);
             }
         }
+    }
+
+    /**
+     * Prints the primary navigation menu.
+     */
+    private static void displayMainMenu() {
+        System.out.println("\n" + ConsoleUI.BOLD + "=== MAIN MENU ===" + ConsoleUI.RESET);
+        System.out.println("  1. Cast Vote");
+        System.out.println("  2. View Live Results");
+        System.out.println("  3. Explore Blockchain");
+        System.out.println("  4. Verify Integrity");
+        System.out.println("  5. Admin Panel");
+        System.out.println("  6. Hacker Simulation");
+        System.out.println("  0. Exit");
     }
 
     /**
@@ -181,7 +189,7 @@ public class Main {
     }
 
     /**
-     * Displays the election results with graphical ASCII bar charts.
+     * Displays the election results with graphical ASCII bar charts and mining statistics.
      *
      * @param sc input scanner
      */
@@ -202,6 +210,10 @@ public class Main {
             System.out.printf("Total Votes Cast : %d%n", totalVotes);
             System.out.printf("Registered Voters: %d%n", totalVoters);
             System.out.printf("Voter Turnout    : %.1f%%%n", turnout);
+            System.out.printf("Total Blocks     : %d | Difficulty: %d | Avg Mining Time: %s%n",
+                    service.getBlockchain().size(),
+                    Blockchain.DIFFICULTY,
+                    service.getAverageMiningTimeMs());
             System.out.println("-".repeat(60));
         }
 
@@ -246,6 +258,7 @@ public class Main {
 
     /**
      * Reloads data from disk and verifies the cryptographic integrity of the entire blockchain.
+     * Displays detailed side-by-side diagnostic evidence if tampering is discovered.
      *
      * @param sc input scanner
      */
@@ -268,34 +281,131 @@ public class Main {
 
         if (badIndex == -1) {
             for (Block b : chain.getBlocks()) {
-                String shortHash = (b.getHash() != null && b.getHash().length() > 16)
-                        ? b.getHash().substring(0, 16) + "..." : b.getHash();
+                String shortHash = shortenHash(b.getHash());
                 ConsoleUI.success("Block #" + b.getIndex() + " [" + shortHash + "]: valid");
             }
             System.out.println();
             ConsoleUI.success("Blockchain verified: " + chain.size() + " blocks, integrity OK.");
         } else {
-            for (int i = 0; i < chain.size(); i++) {
-                Block b = chain.getBlocks().get(i);
-                String shortHash = (b.getHash() != null && b.getHash().length() > 16)
-                        ? b.getHash().substring(0, 16) + "..." : b.getHash();
-
-                if (i < badIndex) {
-                    ConsoleUI.success("Block #" + b.getIndex() + " [" + shortHash + "]: valid");
-                } else if (i == badIndex) {
-                    String reason = chain.getInvalidReason(i);
-                    ConsoleUI.error("Block #" + b.getIndex() + " [" + shortHash + "]: INVALID - " + reason);
-                } else {
-                    ConsoleUI.warn("Block #" + b.getIndex() + " [" + shortHash + "]: UNTRUSTED (broken link)");
-                }
-            }
-            System.out.println();
-            printBoxedRedWarning("TAMPERING DETECTED!\n"
-                    + "Blockchain compromised at Block #" + badIndex + " (" + chain.getInvalidReason(badIndex) + ")\n"
-                    + "Voting is locked. The chain has been modified externally!");
+            displayTamperingReport(chain, badIndex);
         }
 
         ConsoleUI.pause(sc);
+    }
+
+    /**
+     * Displays a comprehensive tampering analysis with side-by-side hash comparison.
+     *
+     * @param chain    the compromised blockchain
+     * @param badIndex index of the first invalid block
+     */
+    private static void displayTamperingReport(Blockchain chain, int badIndex) {
+        for (int i = 0; i < chain.size(); i++) {
+            Block b = chain.getBlocks().get(i);
+            String shortHash = shortenHash(b.getHash());
+
+            if (i < badIndex) {
+                ConsoleUI.success("Block #" + b.getIndex() + " [" + shortHash + "]: valid");
+            } else if (i == badIndex) {
+                String reason = chain.getInvalidReason(i);
+                ConsoleUI.error("Block #" + b.getIndex() + " [" + shortHash + "]: INVALID - " + reason);
+            } else {
+                ConsoleUI.warn("Block #" + b.getIndex() + " [" + shortHash + "]: UNTRUSTED (broken link)");
+            }
+        }
+
+        System.out.println();
+        printBoxedRedWarning("TAMPERING DETECTED!\n"
+                + "Compromised Block: Block #" + badIndex + "\n"
+                + "Failure Reason: " + chain.getInvalidReason(badIndex));
+
+        displayCryptographicEvidence(chain, badIndex);
+
+        System.out.println("\n" + ConsoleUI.YELLOW
+                + "Changing one vote breaks this block's fingerprint and every link after it. "
+                + "Re-mining all following blocks would be required." + ConsoleUI.RESET);
+    }
+
+    /**
+     * Prints side-by-side cryptographic evidence showing hash or link mismatches.
+     *
+     * @param chain    the blockchain
+     * @param badIndex index of the invalid block
+     */
+    private static void displayCryptographicEvidence(Blockchain chain, int badIndex) {
+        Block badBlock = chain.getBlocks().get(badIndex);
+        String reason = chain.getInvalidReason(badIndex);
+
+        System.out.println("\n" + ConsoleUI.BOLD + "Side-by-Side Cryptographic Evidence:" + ConsoleUI.RESET);
+        if (reason.contains("hash mismatch")) {
+            String stored = badBlock.getHash();
+            String recalced = badBlock.calculateHash();
+            System.out.println("  STORED Hash       : " + stored.substring(0, Math.min(20, stored.length())) + "...");
+            System.out.println("  RECALCULATED Hash : " + recalced.substring(0, Math.min(20, recalced.length())) + "...");
+        } else if (reason.contains("Broken link") && badIndex > 0) {
+            Block prevBlock = chain.getBlocks().get(badIndex - 1);
+            String recorded = badBlock.getPreviousHash();
+            String actual = prevBlock.getHash();
+            System.out.println("  RECORDED PrevHash : " + recorded.substring(0, Math.min(20, recorded.length())) + "...");
+            System.out.println("  ACTUAL PrevHash   : " + actual.substring(0, Math.min(20, actual.length())) + "...");
+        } else {
+            System.out.println("  Reason Details    : " + reason);
+        }
+    }
+
+    /**
+     * Executes the Hacker Simulation allowing an authorized admin to tamper with a block
+     * and observe live detection.
+     *
+     * @param sc input scanner
+     */
+    private static void handleHackerSimulation(Scanner sc) {
+        clearScreen();
+        System.out.println(ConsoleUI.BOLD + "--- HACKER SIMULATION (AUDIENCE DEMO) ---" + ConsoleUI.RESET);
+
+        String pwd = ConsoleUI.readLine(sc, "Enter Admin Password to proceed: ");
+        if (!service.verifyPassword(pwd)) {
+            ConsoleUI.error("Access denied: Admin credentials required.");
+            ConsoleUI.pause(sc);
+            return;
+        }
+
+        Blockchain chain = service.getBlockchain();
+        if (chain.size() <= 1) {
+            ConsoleUI.warn("No votes exist yet to tamper with. Cast some votes first!");
+            ConsoleUI.pause(sc);
+            return;
+        }
+
+        System.out.println("\nAvailable Blocks to Attack (1 to " + (chain.size() - 1) + "):");
+        for (int i = 1; i < chain.size(); i++) {
+            Block b = chain.getBlocks().get(i);
+            System.out.println("  Block #" + b.getIndex() + " | Current Candidate: " + b.getCandidate());
+        }
+
+        int targetIndex = ConsoleUI.readInt(sc, "\nEnter block number to attack: ", 1, chain.size() - 1);
+        Block targetBlock = chain.getBlocks().get(targetIndex);
+        String currentCand = targetBlock.getCandidate();
+
+        System.out.println("\nCurrent candidate in Block #" + targetIndex + " is: " + currentCand);
+        String newCand = ConsoleUI.readLine(sc, "Enter replacement candidate name: ");
+        if (!Storage.isSafeText(newCand) || newCand.equalsIgnoreCase(currentCand)) {
+            ConsoleUI.error("Candidate must be valid safe text and different from current candidate ('" + currentCand + "').");
+            ConsoleUI.pause(sc);
+            return;
+        }
+
+        System.out.println("\n" + ConsoleUI.MAGENTA + "Simulating attacker editing chain.txt..." + ConsoleUI.RESET);
+        try {
+            storage.tamperBlock(targetIndex, newCand);
+            Thread.sleep(600);
+        } catch (Exception e) {
+            ConsoleUI.error("Tamper failed: " + e.getMessage());
+            ConsoleUI.pause(sc);
+            return;
+        }
+
+        handleVerifyIntegrity(sc);
     }
 
     /**
@@ -307,22 +417,7 @@ public class Main {
         clearScreen();
         System.out.println(ConsoleUI.BOLD + "--- ADMIN AUTHENTICATION ---" + ConsoleUI.RESET);
 
-        boolean authenticated = false;
-        for (int attempt = 1; attempt <= 3; attempt++) {
-            String inputPwd = ConsoleUI.readLine(sc, "Enter Admin Password: ");
-            if (service.verifyPassword(inputPwd)) {
-                authenticated = true;
-                break;
-            }
-            int remaining = 3 - attempt;
-            if (remaining > 0) {
-                ConsoleUI.warn("Incorrect password. " + remaining + " attempt(s) remaining.");
-            } else {
-                ConsoleUI.error("Access denied. Too many incorrect attempts.");
-            }
-        }
-
-        if (!authenticated) {
+        if (!authenticateAdmin(sc)) {
             ConsoleUI.pause(sc);
             return;
         }
@@ -335,65 +430,134 @@ public class Main {
             System.out.println("  2. Add Candidate");
             System.out.println("  3. List Voters");
             System.out.println("  4. Reset Election");
+            System.out.println("  5. Repair from Backup");
             System.out.println("  0. Back to Main Menu");
 
-            int adminChoice = ConsoleUI.readInt(sc, "\nEnter admin choice [0-4]: ", 0, 4);
+            int adminChoice = ConsoleUI.readInt(sc, "\nEnter admin choice [0-5]: ", 0, 5);
             switch (adminChoice) {
-                case 1 -> {
-                    String vId = ConsoleUI.readLine(sc, "Enter Voter ID (3-12 alphanumeric characters): ");
-                    String name = ConsoleUI.readLine(sc, "Enter Voter Full Name: ");
-                    try {
-                        service.registerVoter(vId, name);
-                        ConsoleUI.success("Voter registered successfully: " + vId.toUpperCase());
-                    } catch (VotingException ve) {
-                        ConsoleUI.error(ve.getMessage());
-                    }
-                    ConsoleUI.pause(sc);
-                }
-                case 2 -> {
-                    String cName = ConsoleUI.readLine(sc, "Enter Candidate Name: ");
-                    try {
-                        service.addCandidate(cName);
-                        ConsoleUI.success("Candidate added successfully: " + cName);
-                    } catch (VotingException ve) {
-                        ConsoleUI.error(ve.getMessage());
-                    }
-                    ConsoleUI.pause(sc);
-                }
-                case 3 -> {
-                    System.out.println("\nRegistered Voters Registry:");
-                    Map<String, Voter> voters = service.getVoters();
-                    if (voters.isEmpty()) {
-                        ConsoleUI.info("No voters registered yet.");
-                    } else {
-                        System.out.printf("%-15s %-30s %-10s%n", "Voter ID", "Name", "Voted?");
-                        System.out.println("-".repeat(58));
-                        for (Voter v : voters.values()) {
-                            boolean hasVoted = service.hasVoted(v.getVoterId());
-                            String votedStatus = hasVoted
-                                    ? (ConsoleUI.GREEN + "YES" + ConsoleUI.RESET)
-                                    : (ConsoleUI.YELLOW + "NO" + ConsoleUI.RESET);
-                            System.out.printf("%-15s %-30s %-10s%n", v.getVoterId(), v.getName(), votedStatus);
-                        }
-                    }
-                    ConsoleUI.pause(sc);
-                }
-                case 4 -> {
-                    ConsoleUI.warn("WARNING: This will reset the entire blockchain to Genesis block!");
-                    ConsoleUI.warn("Registered voters and candidates will remain intact.");
-                    String conf = ConsoleUI.readLine(sc, "Type 'RESET' in uppercase to confirm: ");
-                    if ("RESET".equals(conf)) {
-                        service.resetElection();
-                        ConsoleUI.success("Election reset successfully. Blockchain re-initialized.");
-                    } else {
-                        ConsoleUI.info("Reset cancelled.");
-                    }
-                    ConsoleUI.pause(sc);
-                }
+                case 1 -> handleAdminRegisterVoter(sc);
+                case 2 -> handleAdminAddCandidate(sc);
+                case 3 -> handleAdminListVoters(sc);
+                case 4 -> handleAdminResetElection(sc);
+                case 5 -> handleAdminRepairBackup(sc);
                 case 0 -> inAdmin = false;
                 default -> ConsoleUI.error("Invalid choice.");
             }
         }
+    }
+
+    /**
+     * Prompts for admin password with up to 3 attempts.
+     *
+     * @param sc input scanner
+     * @return true if authenticated; false otherwise
+     */
+    private static boolean authenticateAdmin(Scanner sc) {
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            String inputPwd = ConsoleUI.readLine(sc, "Enter Admin Password: ");
+            if (service.verifyPassword(inputPwd)) {
+                return true;
+            }
+            int remaining = 3 - attempt;
+            if (remaining > 0) {
+                ConsoleUI.warn("Incorrect password. " + remaining + " attempt(s) remaining.");
+            } else {
+                ConsoleUI.error("Access denied. Too many incorrect attempts.");
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Admin action to register a new voter.
+     */
+    private static void handleAdminRegisterVoter(Scanner sc) {
+        String vId = ConsoleUI.readLine(sc, "Enter Voter ID (3-12 alphanumeric characters): ");
+        String name = ConsoleUI.readLine(sc, "Enter Voter Full Name: ");
+        try {
+            service.registerVoter(vId, name);
+            ConsoleUI.success("Voter registered successfully: " + vId.toUpperCase());
+        } catch (VotingException ve) {
+            ConsoleUI.error(ve.getMessage());
+        }
+        ConsoleUI.pause(sc);
+    }
+
+    /**
+     * Admin action to add a new ballot candidate.
+     */
+    private static void handleAdminAddCandidate(Scanner sc) {
+        String cName = ConsoleUI.readLine(sc, "Enter Candidate Name: ");
+        try {
+            service.addCandidate(cName);
+            ConsoleUI.success("Candidate added successfully: " + cName);
+        } catch (VotingException ve) {
+            ConsoleUI.error(ve.getMessage());
+        }
+        ConsoleUI.pause(sc);
+    }
+
+    /**
+     * Admin action to list registered voters and their voting participation status.
+     */
+    private static void handleAdminListVoters(Scanner sc) {
+        System.out.println("\nRegistered Voters Registry:");
+        Map<String, Voter> voters = service.getVoters();
+        if (voters.isEmpty()) {
+            ConsoleUI.info("No voters registered yet.");
+        } else {
+            System.out.printf("%-15s %-30s %-10s%n", "Voter ID", "Name", "Voted?");
+            System.out.println("-".repeat(58));
+            for (Voter v : voters.values()) {
+                boolean hasVoted = service.hasVoted(v.getVoterId());
+                String votedStatus = hasVoted
+                        ? (ConsoleUI.GREEN + "YES" + ConsoleUI.RESET)
+                        : (ConsoleUI.YELLOW + "NO" + ConsoleUI.RESET);
+                System.out.printf("%-15s %-30s %-10s%n", v.getVoterId(), v.getName(), votedStatus);
+            }
+        }
+        ConsoleUI.pause(sc);
+    }
+
+    /**
+     * Admin action to reset the blockchain election data.
+     */
+    private static void handleAdminResetElection(Scanner sc) {
+        ConsoleUI.warn("WARNING: This will reset the entire blockchain to Genesis block!");
+        ConsoleUI.warn("Registered voters and candidates will remain intact.");
+        String conf = ConsoleUI.readLine(sc, "Type 'RESET' in uppercase to confirm: ");
+        if ("RESET".equals(conf)) {
+            service.resetElection();
+            ConsoleUI.success("Election reset successfully. Blockchain re-initialized.");
+        } else {
+            ConsoleUI.info("Reset cancelled.");
+        }
+        ConsoleUI.pause(sc);
+    }
+
+    /**
+     * Admin action to restore the blockchain from the secure backup copy.
+     */
+    private static void handleAdminRepairBackup(Scanner sc) {
+        try {
+            storage.restoreBackup();
+            ConsoleUI.success("Backup restored successfully from chain.backup.txt!");
+            service = new VotingService(storage);
+            runStartupIntegrityCheck();
+        } catch (Exception e) {
+            ConsoleUI.error("Failed to restore backup: " + e.getMessage());
+        }
+        ConsoleUI.pause(sc);
+    }
+
+    /**
+     * Returns a shortened 16-character hash representation.
+     */
+    private static String shortenHash(String hash) {
+        if (hash == null) {
+            return "null";
+        }
+        return (hash.length() > 16) ? hash.substring(0, 16) + "..." : hash;
     }
 
     /**

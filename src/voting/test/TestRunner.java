@@ -555,6 +555,62 @@ public class TestRunner {
     }
 
     /**
+     * Executes test cases for Phase 7: Backup creation, tampering simulation, and restoration.
+     */
+    public static void testPhase7() {
+        System.out.println("\n=== Running Phase 7 Tests ===");
+        File testDir = new File("data_test7");
+        deleteDirectory(testDir);
+
+        try {
+            Storage storage = new Storage("data_test7");
+            VotingService service = new VotingService(storage);
+
+            service.registerVoter("V101", "Voter 1");
+            service.registerVoter("V102", "Voter 2");
+            service.registerVoter("V103", "Voter 3");
+
+            service.addCandidate("Alice");
+            service.addCandidate("Bob");
+            service.addCandidate("Charlie");
+
+            // a) chain.backup.txt exists after casting a vote
+            service.castVote("V101", "Alice");
+            File backupFile = new File("data_test7", "chain.backup.txt");
+            check("Phase 7a: chain.backup.txt exists after casting a vote",
+                    backupFile.exists() && backupFile.length() > 0);
+
+            // b) after 3 votes, tamperBlock(2, <a different candidate>) then loadChain(): findFirstInvalidBlock() == 2
+            service.castVote("V102", "Bob");
+            service.castVote("V103", "Alice");
+            storage.tamperBlock(2, "Charlie");
+            Blockchain tampered = storage.loadChain();
+            check("Phase 7b: after 3 votes, tamperBlock(2, ...) then loadChain() has invalid block at index 2",
+                    tampered.findFirstInvalidBlock() == 2);
+
+            // c) restoreBackup() then loadChain() gives a valid chain with the same size as before tampering
+            storage.restoreBackup();
+            Blockchain restored = storage.loadChain();
+            check("Phase 7c: restoreBackup() then loadChain() gives a valid chain with same size as before tampering",
+                    restored.isValid() && restored.size() == 4);
+
+            // d) tamperBlock(0, ...) throws IllegalArgumentException
+            boolean throwsOnZero = false;
+            try {
+                storage.tamperBlock(0, "HackedGenesis");
+            } catch (IllegalArgumentException e) {
+                throwsOnZero = true;
+            }
+            check("Phase 7d: tamperBlock(0, ...) throws IllegalArgumentException", throwsOnZero);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            deleteDirectory(testDir);
+        }
+    }
+
+    /**
      * Runs all test suites, outputs the final pass/fail summary, and exits with code 1 on failure.
      *
      * @param args command-line arguments
@@ -565,6 +621,7 @@ public class TestRunner {
         testPhase3();
         testPhase4();
         testPhase5();
+        testPhase7();
 
         System.out.println("\n" + passed + " passed, " + failed + " failed");
         if (failed > 0) {

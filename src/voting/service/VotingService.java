@@ -27,6 +27,8 @@ public class VotingService {
     private final List<String> candidates;
     private boolean corrupted;
     private String loadError;
+    private static long totalMiningTimeNanos = 0;
+    private static int blocksMinedCount = 0;
 
     /**
      * Constructs a VotingService by loading existing data from storage.
@@ -161,7 +163,12 @@ public class VotingService {
         }
 
         String voterHash = HashUtil.sha256(upperId);
+        long start = System.nanoTime();
         Block block = blockchain.addVote(voterHash, candidate);
+        long elapsed = System.nanoTime() - start;
+        totalMiningTimeNanos += elapsed;
+        blocksMinedCount++;
+
         if (!corrupted) {
             storage.saveChain(blockchain);
         }
@@ -296,5 +303,27 @@ public class VotingService {
      */
     public String getLoadError() {
         return loadError;
+    }
+
+    /**
+     * Calculates the average mining time for all blocks mined during the current session.
+     *
+     * @return formatted average mining time in milliseconds, or "N/A" if no blocks were mined
+     */
+    public String getAverageMiningTimeMs() {
+        if (blocksMinedCount == 0) {
+            return "N/A";
+        }
+        double avgMs = (totalMiningTimeNanos / (double) blocksMinedCount) / 1_000_000.0;
+        return String.format("%.2f ms", avgMs);
+    }
+
+    /**
+     * Returns the number of blocks mined during the current session.
+     *
+     * @return session blocks mined count
+     */
+    public int getBlocksMinedCount() {
+        return blocksMinedCount;
     }
 }
