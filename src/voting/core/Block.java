@@ -75,10 +75,10 @@ public class Block {
      */
     public void mineBlock(int difficulty) {
         String target = "0".repeat(difficulty);
-        while (!this.hash.startsWith(target)) {
+        do {
             this.nonce++;
             this.hash = calculateHash();
-        }
+        } while (!this.hash.startsWith(target));
     }
 
     /**

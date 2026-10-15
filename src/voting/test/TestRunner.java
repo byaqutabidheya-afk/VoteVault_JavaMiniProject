@@ -1,6 +1,9 @@
 package voting.test;
 
+import java.util.ArrayList;
+import java.util.List;
 import voting.core.Block;
+import voting.core.Blockchain;
 import voting.util.HashUtil;
 
 /**
@@ -107,6 +110,90 @@ public class TestRunner {
     }
 
     /**
+     * Executes test cases for Phase 3: Blockchain creation, vote mining, and integrity validation.
+     */
+    public static void testPhase3() {
+        System.out.println("\n=== Running Phase 3 Tests ===");
+
+        // a) new chain has size 1 and is valid
+        Blockchain bc = new Blockchain();
+        check("Phase 3a: new chain has size 1 and is valid",
+                bc.size() == 1 && bc.isValid());
+
+        // b) after adding 3 votes, size is 4 and chain is valid
+        bc.addVote("voterHash001", "Alice");
+        bc.addVote("voterHash002", "Bob");
+        bc.addVote("voterHash003", "Alice");
+        check("Phase 3b: after adding 3 votes, size is 4 and chain is valid",
+                bc.size() == 4 && bc.isValid());
+
+        // c) each block's previousHash equals the prior block's hash
+        boolean linksValid = true;
+        for (int i = 1; i < bc.size(); i++) {
+            if (!bc.getBlocks().get(i).getPreviousHash().equals(bc.getBlocks().get(i - 1).getHash())) {
+                linksValid = false;
+                break;
+            }
+        }
+        check("Phase 3c: each block's previousHash equals the prior block's hash",
+                linksValid);
+
+        // d) TAMPER TEST: build a valid 4-block chain, then create a copy list where block 2 is
+        //    replaced by a new Block using the full-field constructor with the same fields
+        //    EXCEPT candidate changed and the OLD hash kept. Load into new Blockchain(list).
+        //    findFirstInvalidBlock() must return 2, and isValid() false.
+        List<Block> tamperedList = new ArrayList<>(bc.getBlocks());
+        Block originalBlock2 = tamperedList.get(2);
+        Block fakeBlock2 = new Block(
+                originalBlock2.getIndex(),
+                originalBlock2.getTimestamp(),
+                originalBlock2.getVoterHash(),
+                "AttackerCandidate",
+                originalBlock2.getPreviousHash(),
+                originalBlock2.getNonce(),
+                originalBlock2.getHash()
+        );
+        tamperedList.set(2, fakeBlock2);
+        Blockchain tamperedChain = new Blockchain(tamperedList);
+        check("Phase 3d: tampered block 2 detected as invalid at index 2 and chain invalid",
+                tamperedChain.findFirstInvalidBlock() == 2 && !tamperedChain.isValid());
+
+        // e) RE-MINE ATTACK TEST: same as (d), but the attacker then calls
+        //    mineBlock(Blockchain.DIFFICULTY) on the fake block 2 so its hash and proof-of-work
+        //    are valid. findFirstInvalidBlock() must return 3 (block 3's link breaks).
+        List<Block> reMinedList = new ArrayList<>(bc.getBlocks());
+        Block origB2 = reMinedList.get(2);
+        Block reMinedFake2 = new Block(
+                origB2.getIndex(),
+                origB2.getTimestamp(),
+                origB2.getVoterHash(),
+                "AttackerCandidate",
+                origB2.getPreviousHash(),
+                origB2.getNonce(),
+                origB2.getHash()
+        );
+        reMinedFake2.mineBlock(Blockchain.DIFFICULTY);
+        reMinedList.set(2, reMinedFake2);
+        Blockchain reMinedChain = new Blockchain(reMinedList);
+        check("Phase 3e: re-mined fake block 2 causes block 3 link break at index 3",
+                reMinedChain.findFirstInvalidBlock() == 3 && !reMinedChain.isValid());
+
+        // f) getInvalidReason returns a non-empty string for a tampered block
+        String reason = tamperedChain.getInvalidReason(2);
+        check("Phase 3f: getInvalidReason returns a non-empty string for a tampered block",
+                reason != null && !reason.trim().isEmpty() && !reason.equals("Block is valid"));
+
+        // g) getBlocks() is unmodifiable (adding to it throws UnsupportedOperationException)
+        boolean throwsUnsupported = false;
+        try {
+            bc.getBlocks().add(new Block(99, 9999L, "fakeVoter", "Eve", "0000fake"));
+        } catch (UnsupportedOperationException e) {
+            throwsUnsupported = true;
+        }
+        check("Phase 3g: getBlocks() is unmodifiable", throwsUnsupported);
+    }
+
+    /**
      * Runs all test suites, outputs the final pass/fail summary, and exits with code 1 on failure.
      *
      * @param args command-line arguments
@@ -114,6 +201,7 @@ public class TestRunner {
     public static void main(String[] args) {
         testPhase1();
         testPhase2();
+        testPhase3();
 
         System.out.println("\n" + passed + " passed, " + failed + " failed");
         if (failed > 0) {
